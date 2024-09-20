@@ -1,0 +1,15 @@
+[general]
+name=Aplugin
+qgisMinimumVersion=3.6
+description=Project to help the user set up a QGIS plugin
+version=1.0.0
+author=Me
+about=very simple plugin
+email=acrabbe.foss@gmail.com
+tracker=https://bitbucket.org/kul-reseco/create-qgis-plugin/issues
+repository=https://bitbucket.org/kul-reseco/create-qgis-plugin/src
+tags=QGIS
+homepage=https://create-qgis-plugin.readthedocs.io
+icon=images/plugin_logo.png
+category=Raster
+hasProcessingProvider=yes

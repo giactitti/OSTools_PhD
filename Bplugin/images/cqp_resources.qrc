@@ -1,0 +1,5 @@
+<RCC>
+    <qresource>
+        <file alias="Bplugin_logo">Bplugin_logo.png</file>
+    </qresource>
+</RCC>

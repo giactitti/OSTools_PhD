@@ -1,0 +1,14 @@
+[general]
+name=MYPLUGIN
+qgisMinimumVersion=3.26
+description=Project
+version=0.0.1
+author=Giacomo Titti
+about=Project
+email=giacomotitti@gmail.com
+tracker=https://github.com/
+repository=https://github.com/
+tags=QGIS, plugin
+homepage=https://readthedocs.io
+icon=images/Bplugin_logo.png
+category=Plugins
