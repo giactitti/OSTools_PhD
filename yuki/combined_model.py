@@ -71,32 +71,6 @@ class HighestElevationPointAndLeastCostPathAlgorithm(QgsProcessingAlgorithm):
         # DEM と ポリゴンレイヤーを取得
         dem_layer = self.parameterAsRasterLayer(parameters, 'post_disaster_dem', context)
         polygon_layer = self.parameterAsVectorLayer(parameters, 'landslide_polygon', context)
-
-        # GeoDataFrame を用意して、結果を格納する
-        output_points = gpd.GeoDataFrame(columns=['value'], geometry=[])
-        
-        with rasterio.open(dem_layer.source()) as src:
-            for feature in polygon_layer.getFeatures():
-                geom = feature.geometry()
-                geom_json = geom.asJson()
-                geom_shape = shape(eval(geom_json))  # ポリゴンのジオメトリ
-
-                # DEMデータをポリゴンでマスクし、対象領域を抽出
-                out_image, out_transform = rasterio.mask.mask(src, [geom_shape], crop=True)
-                
-                # 最高標高点の計算
-                max_value_index = np.argmax(out_image[0])
-                ind = np.unravel_index(max_value_index, out_image[0].shape)
-                max_value = out_image[0][ind]
-                lon, lat = rasterio.transform.xy(out_transform, ind[0], ind[1])
-                point = Point(lon, lat)
-                
-                # GeoDataFrameに最高標高点の座標と値を格納
-                output_points.loc[len(output_points)] = {'value': max_value, 'geometry': point}
-        
-        # CRSの設定（ポリゴンレイヤーのCRSを使用）
-        output_points.crs = polygon_layer.crs().toWkt()
-
         # QGIS の FeatureSink を用いてポイントレイヤーを保存
         (sink, dest_id) = self.parameterAsSink(
             parameters, 
@@ -109,13 +83,11 @@ class HighestElevationPointAndLeastCostPathAlgorithm(QgsProcessingAlgorithm):
             polygon_layer.crs()
         )
 
-        highest_elevation_points = []
-        for idx, row in output_points.iterrows():
-            feat = QgsFeature()
-            feat.setGeometry(QgsGeometry.fromWkt(row['geometry'].wkt))
-            feat.setAttributes([row['value']])
-            sink.addFeature(feat, QgsFeatureSink.FastInsert)
-            highest_elevation_points.append(feat.geometry().asPoint())  # 高度の高いポイントを記録
+        alg_params={
+            'dem_layer': dem_layer,
+            'polygon_layer':polygon_layer
+        }
+        self.maxminelevation(alg_params)
 
         feedback.setCurrentStep(1)
         if feedback.isCanceled():
@@ -167,4 +139,39 @@ class HighestElevationPointAndLeastCostPathAlgorithm(QgsProcessingAlgorithm):
 
     def createInstance(self):
         return HighestElevationPointAndLeastCostPathAlgorithm()
+    
+    def maxminelevation(self, parameters):
+        # GeoDataFrame を用意して、結果を格納する
+        output_points = gpd.GeoDataFrame(columns=['value'], geometry=[])
+        
+        with rasterio.open(parameters['dem_layer'].source()) as src:
+            for feature in parameters['polygon_layer'].getFeatures():
+                geom = feature.geometry()
+                geom_json = geom.asJson()
+                geom_shape = shape(eval(geom_json))  # ポリゴンのジオメトリ
 
+                # DEMデータをポリゴンでマスクし、対象領域を抽出
+                out_image, out_transform = rasterio.mask.mask(src, [geom_shape], crop=True)
+                
+                # 最高標高点の計算
+                max_value_index = np.argmax(out_image[0])
+                ind = np.unravel_index(max_value_index, out_image[0].shape)
+                max_value = out_image[0][ind]
+                lon, lat = rasterio.transform.xy(out_transform, ind[0], ind[1])
+                point = Point(lon, lat)
+                
+                # GeoDataFrameに最高標高点の座標と値を格納
+                output_points.loc[len(output_points)] = {'value': max_value, 'geometry': point}
+        
+        # CRSの設定（ポリゴンレイヤーのCRSを使用）
+        output_points.crs = polygon_layer.crs().toWkt()
+
+
+
+        highest_elevation_points = []
+        for idx, row in output_points.iterrows():
+            feat = QgsFeature()
+            feat.setGeometry(QgsGeometry.fromWkt(row['geometry'].wkt))
+            feat.setAttributes([row['value']])
+            sink.addFeature(feat, QgsFeatureSink.FastInsert)
+            highest_elevation_points.append(feat.geometry().asPoint())  # 高度の高いポイントを記録
