@@ -87,13 +87,18 @@ class HighestElevationPointAndLeastCostPathAlgorithm(QgsProcessingAlgorithm):
 
         alg_params={
             'dem_layer': dem_layer,
-            'polygon_layer':polygon_layer
+            'polygon_layer':polygon_layer,
+            'sink':sink,
         }
-        self.maxminelevation(alg_params)
+        outputs['highest_elevation_points']=self.maxminelevation(alg_params)
+
+        print(outputs['highest_elevation_points'])
 
         feedback.setCurrentStep(1)
         if feedback.isCanceled():
             return {}
+        
+        print(ciao)
 
         # 最小コスト経路（Least Cost Path）を計算
         # ここでは Flow Accumulation のデータが必要です。必要な処理を呼び出します。
@@ -166,7 +171,7 @@ class HighestElevationPointAndLeastCostPathAlgorithm(QgsProcessingAlgorithm):
                 output_points.loc[len(output_points)] = {'value': max_value, 'geometry': point}
         
         # CRSの設定（ポリゴンレイヤーのCRSを使用）
-        output_points.crs = polygon_layer.crs().toWkt()
+        output_points.crs = parameters['polygon_layer'].crs().toWkt()
 
 
 
@@ -175,5 +180,6 @@ class HighestElevationPointAndLeastCostPathAlgorithm(QgsProcessingAlgorithm):
             feat = QgsFeature()
             feat.setGeometry(QgsGeometry.fromWkt(row['geometry'].wkt))
             feat.setAttributes([row['value']])
-            sink.addFeature(feat, QgsFeatureSink.FastInsert)
+            parameters['sink'].addFeature(feat, QgsFeatureSink.FastInsert)
             highest_elevation_points.append(feat.geometry().asPoint())  # 高度の高いポイントを記録
+        return highest_elevation_points
