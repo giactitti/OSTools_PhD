@@ -71,15 +71,17 @@ class HighestElevationPointAndLeastCostPathAlgorithm(QgsProcessingAlgorithm):
         # DEM と ポリゴンレイヤーを取得
         dem_layer = self.parameterAsRasterLayer(parameters, 'post_disaster_dem', context)
         polygon_layer = self.parameterAsVectorLayer(parameters, 'landslide_polygon', context)
+        
+        # QgsFields インスタンスを作成し、フィールドを追加する
+        fields = QgsFields()
+        fields.append(QgsField('value', QVariant.Double))
         # QGIS の FeatureSink を用いてポイントレイヤーを保存
         (sink, dest_id) = self.parameterAsSink(
             parameters, 
             'highest_elevation_point', 
             context, 
-            QgsFields([
-                QgsField('value', QVariant.Double)
-            ]), 
-            QgsWkbTypes.Point, 
+            fields,
+            QgsWkbTypes.Point,
             polygon_layer.crs()
         )
 
