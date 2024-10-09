@@ -15,15 +15,17 @@ import processing
 
 from sklearn.neural_network import MLPClassifier
 
+import geopandas as gpd
+
 
 class Model(QgsProcessingAlgorithm):
 
     def initAlgorithm(self, config=None):        
         self.addParameter(QgsProcessingParameterVectorLayer('v', 'study_area_for_learning', defaultValue=None))
-        self.addParameter(QgsProcessingParameterField('x_learn', 'explanatory_variables', type=QgsProcessingParameterField.Any, parentLayerParameterName='study', allowMultiple=True, defaultValue=None))
-        self.addParameter(QgsProcessingParameterField('y_learn', 'susceptible_unit_flag', type=QgsProcessingParameterField.Any, parentLayerParameterName='study', allowMultiple=False, defaultValue=None))
+        self.addParameter(QgsProcessingParameterField('x_learn', 'explanatory_variables', type=QgsProcessingParameterField.Any, parentLayerParameterName='v', allowMultiple=True, defaultValue=None))
+        self.addParameter(QgsProcessingParameterField('y_learn', 'susceptible_unit_flag', type=QgsProcessingParameterField.Any, parentLayerParameterName='v', allowMultiple=False, defaultValue=None))
         self.addParameter(QgsProcessingParameterVectorLayer('w', 'study_area_for_susceptibility_assessing', defaultValue=None))
-        self.addParameter(QgsProcessingParameterField('x_pred', 'explanatory_variables_assess', type=QgsProcessingParameterField.Any, parentLayerParameterName='predict', allowMultiple=True, defaultValue=None))
+        #self.addParameter(QgsProcessingParameterField('x_pred', 'explanatory_variables_assess', type=QgsProcessingParameterField.Any, parentLayerParameterName='w', allowMultiple=True, defaultValue=None))
         self.addParameter(QgsProcessingParameterFeatureSink('Output', 'study_area_with_predicted_susceptible_units', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))
 
     def processAlgorithm(self, parameters, context, model_feedback):
@@ -55,8 +57,13 @@ class Model(QgsProcessingAlgorithm):
     def createInstance(self):
         return Model()
 
-    def NN(parameters):        
-        MLP = MLPClassifier(hidden_layer_sizes=(16, 32, 64, 32, 16), random_state=42)  
+    def import_dataframe(self, parameters):
+        
+        return
+
+    def NN(self, parameters):        
+        MLP = MLPClassifier(hidden_layer_sizes=(16, 32, 64, 32, 16, 8), random_state=42)  
+        
         y_train = parameters['y_learn']
         X_train = parameters['x_learn']
         MLP.fit(X_train, y_train)
