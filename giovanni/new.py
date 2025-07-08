@@ -1,2 +1,1 @@
-ciao
-hello world
+print("hello world!")
