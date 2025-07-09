@@ -11,6 +11,15 @@ import processing
 
 class TestComposito(QgsProcessingAlgorithm):
 
+    def shortHelpString(self):
+        return self.HelpString()
+
+    def HelpString(self):
+        return (
+            "This plugin clips input layers to a mask, intersects them with administrative units, "
+            "calculates the area, and aggregates the results by unit."
+        )
+
     def initAlgorithm(self, config=None):
         self.addParameter(QgsProcessingParameterMultipleLayers('mappe', 'Mappe', layerType=QgsProcessing.TypeVector, defaultValue='LHP'))
         self.addParameter(QgsProcessingParameterVectorLayer('mask', 'Mask', types=[QgsProcessing.TypeVectorAnyGeometry], defaultValue='REG'))
@@ -34,14 +43,12 @@ class TestComposito(QgsProcessingAlgorithm):
 
             vector=QgsVectorLayer(mappe,'','ogr')
 
-            print(1)
             # Estrai "alta", "media" o "bassa" dal campo scenario
             scenario_value = ''
             for feat in vector.getFeatures():
-                print(2)
-
-                scenario_value = feat['scenario']
-                break  # solo il primo valore
+                scenario_value = str(feat['per']) 
+                break  # solo il primo valore            
+                print(scenario_value)
 
             # Clip vector by mask layer
             clip_params = {
@@ -52,8 +59,7 @@ class TestComposito(QgsProcessingAlgorithm):
             }
             outputs['ClipVectorByMaskLayer'] = processing.run('gdal:clipvectorbypolygon', clip_params, context=context, feedback=feedback, is_child_algorithm=True)
             clipped_layer = outputs['ClipVectorByMaskLayer']['OUTPUT']
-            print(3)
-
+            
             # Intersection
             inter_params = {
                 'GRID_SIZE': None,
@@ -83,10 +89,10 @@ class TestComposito(QgsProcessingAlgorithm):
             # Agregate
             aggr_params = {
                 'AGGREGATES': [{'aggregate': 'count','delimiter': ',','input': '"Area_Km2"','length': 20,'name': 'count','precision': 0,'sub_type': 0,'type': 6,'type_name': 'double precision'},
-                #{'aggregate': 'first_value','delimiter': ',','input': parameters['ISTAT'],'length': 254,'name': 'ISTAT','precision': 0,'sub_type': 0,'type': 10,'type_name': 'text'},
-                #{'aggregate': 'first_value','delimiter': ',','input': parameters['COMUNE'],'length': 50,'name': 'Comune','precision': 0,'sub_type': 0,'type': 10,'type_name': 'text'},
-                #{'aggregate': 'first_value','delimiter': ',','input': parameters['PROVINCIA'],'length': 254,'name': 'Provincia','precision': 0,'sub_type': 0,'type': 10,'type_name': 'text'},
-                {'aggregate': 'sum','delimiter': ',','input': '"Area_Km2"','length': 20,'name': 'scenario','precision': 3,'sub_type': 0,'type': 6,'type_name': 'double precision'}],
+                {'aggregate': 'first_value','delimiter': ',','input': parameters['ISTAT'],'length': 254,'name': 'ISTAT','precision': 0,'sub_type': 0,'type': 10,'type_name': 'text'},
+                {'aggregate': 'first_value','delimiter': ',','input': parameters['COMUNE'],'length': 50,'name': 'Comune','precision': 0,'sub_type': 0,'type': 10,'type_name': 'text'},
+                {'aggregate': 'first_value','delimiter': ',','input': parameters['PROVINCIA'],'length': 254,'name': 'Provincia','precision': 0,'sub_type': 0,'type': 10,'type_name': 'text'},
+                {'aggregate': 'sum','delimiter': ',','input': '"Area_Km2"','length': 20,'name': scenario_value ,'precision': 3,'sub_type': 0,'type': 6,'type_name': 'double precision'}],
                 'GROUP_BY': parameters['ISTAT'],
                 'INPUT': area_layer,
                 'OUTPUT': 'TEMPORARY_OUTPUT'
@@ -138,4 +144,3 @@ class TestComposito(QgsProcessingAlgorithm):
 
     def createInstance(self):
         return TestComposito()
-
