@@ -35,10 +35,8 @@ class Comp_RER(QgsProcessingAlgorithm):
         feedback = QgsProcessingMultiStepFeedback(1, model_feedback)
         results = {}
         outputs = {}
-        print(parameters)
-
-        # Ciclo for
         
+        # Ciclo for
         for count,mappe in enumerate(parameters['mappe']):
 
             vector=QgsVectorLayer(mappe,'','ogr')
@@ -48,7 +46,6 @@ class Comp_RER(QgsProcessingAlgorithm):
             for feat in vector.getFeatures():
                 scenario_value = str(feat['per']) 
                 break  # solo il primo valore            
-                print(scenario_value)
 
             # Clip vector by mask layer
             clip_params = {
@@ -73,7 +70,7 @@ class Comp_RER(QgsProcessingAlgorithm):
             outputs['Intersection'] = processing.run('native:intersection', inter_params, context=context, feedback=feedback, is_child_algorithm=True)
             inter_layer = outputs['Intersection']['OUTPUT']
             
-            # Area
+            # Area calculation
             area_params = {
                 'FIELD_LENGTH': 20,
                 'FIELD_NAME': 'Area_Km2',
@@ -86,7 +83,7 @@ class Comp_RER(QgsProcessingAlgorithm):
             outputs['FieldCalculator'] = processing.run('native:fieldcalculator', area_params, context=context, feedback=feedback, is_child_algorithm=True)
             area_layer = outputs['FieldCalculator']['OUTPUT']
 
-            # Agregate
+            # Agregation
             aggr_params = {
                 'AGGREGATES': [{'aggregate': 'count','delimiter': ',','input': '"Area_Km2"','length': 20,'name': 'count','precision': 0,'sub_type': 0,'type': 6,'type_name': 'double precision'},
                 {'aggregate': 'first_value','delimiter': ',','input': parameters['ISTAT'],'length': 254,'name': 'ISTAT','precision': 0,'sub_type': 0,'type': 10,'type_name': 'text'},
@@ -98,35 +95,25 @@ class Comp_RER(QgsProcessingAlgorithm):
                 'OUTPUT': 'TEMPORARY_OUTPUT'
             }
             outputs['Aggregate'] = processing.run('native:aggregate', aggr_params, context=context, feedback=feedback, is_child_algorithm=True)
-            if count==0:
-                # Join colonna Area su ISTAT
-                joined_params = {
-                     'INPUT': parameters['unit_funzionale'],
-                     'FIELD': 'ISTAT',
-                     'INPUT_2': outputs['Aggregate']['OUTPUT'],
-                     'FIELD_2': 'ISTAT',
-                     'FIELDS_TO_COPY': scenario_value,
-                     'METHOD': 1,
-                     'DISCARD_NONMATCHING': False,
-                     'OUTPUT': 'TEMPORARY_OUTPUT'
-                }
-                outputs['JoinAttributes'] = processing.run('native:joinattributestable', joined_params, context=context, feedback=feedback, is_child_algorithm=True)
-                joined_layer = outputs['JoinAttributes']['OUTPUT']
-            else:
-                joined_params = {
-                     'INPUT': joined_layer,
-                     'FIELD': 'ISTAT',
-                     'INPUT_2': outputs['Aggregate']['OUTPUT'],
-                     'FIELD_2': 'ISTAT',
-                     'FIELDS_TO_COPY': [scenario_value],
-                     'METHOD': 1,
-                     'DISCARD_NONMATCHING': False,
-                     'OUTPUT': 'TEMPORARY_OUTPUT'
-                }
-                if count==len(parameters['mappe'])-1:
-                    joined_params['OUTPUT']=parameters['mappa_join']
-                outputs['JoinAttributes'] = processing.run('native:joinattributestable', joined_params, context=context, feedback=feedback, is_child_algorithm=True)
-                joined_layer = outputs['JoinAttributes']['OUTPUT']
+            
+            # Join colonna Area su ISTAT
+            joined_params = {
+                'INPUT': parameters['unit_funzionale'] if count == 0 else joined_layer,
+                'FIELD': 'ISTAT',
+                'INPUT_2': outputs['Aggregate']['OUTPUT'],
+                'FIELD_2': 'ISTAT',
+                'FIELDS_TO_COPY': [scenario_value],
+                'METHOD': 1,
+                'DISCARD_NONMATCHING': False,
+                'OUTPUT': parameters['mappa_join'] if count == len(parameters['mappe']) - 1 else 'TEMPORARY_OUTPUT'
+            }
+            outputs['JoinAttributes'] = processing.run('native:joinattributestable', joined_params, context=context, feedback=feedback, is_child_algorithm=True)
+            joined_layer = outputs['JoinAttributes']['OUTPUT']
+           
+            feedback.setCurrentStep(count + 1)
+            if feedback.isCanceled():
+                break
+
         results['mappa_join'] = joined_layer
         return results
 
@@ -135,12 +122,6 @@ class Comp_RER(QgsProcessingAlgorithm):
 
     def displayName(self):
         return 'Comp_RER (Clip+Inter+Area+Aggr+Join)'
-
-    def group(self):
-        return 'Custom Script'
-
-    def groupId(self):
-        return 'CustomScript'
 
     def createInstance(self):
         return Comp_RER()
