@@ -9,8 +9,10 @@ from qgis.core import (
     QgsCoordinateTransform,
     QgsProject
 )
+from qgis.PyQt.QtGui import QIcon
 import processing
 import shutil
+import os
 
 class tc(QgsProcessingAlgorithm):
     
@@ -26,10 +28,10 @@ class tc(QgsProcessingAlgorithm):
         # Qui creo una nuova istanza della classe per QGIS
         return tc()  
     
-
+    def icon(self):
+        return QIcon(os.path.join(os.path.dirname(__file__), 'icon.svg'))
 
     def shortHelpString(self):
-
         return """
         <h3>Analisi del Catchment</h3>
         
@@ -100,7 +102,6 @@ class tc(QgsProcessingAlgorithm):
         
         # Test per verificare che le funzioni di help funzionino
         feedback.pushInfo("=== TEST FUNZIONI HELP ===")
-        feedback.pushInfo("helpString() chiamata: " + str(self.helpString() is not None))
         feedback.pushInfo("shortHelpString() chiamata: " + str(self.shortHelpString() is not None))
         feedback.pushInfo("=========================")
         
