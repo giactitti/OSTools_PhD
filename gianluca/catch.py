@@ -70,10 +70,9 @@ class tc(QgsProcessingAlgorithm):
             QgsProcessingParameterRasterDestination('Aspect', 'Aspect')
         )
         
-        # Parametro di output per la rete idrografica
+        # Parametro di output per la rete idrografica (raster)
         self.addParameter(
-            QgsProcessingParameterVectorDestination('StreamNetwork', 'Stream network', 
-                type=QgsProcessing.TypeVectorLine, optional=True)
+            QgsProcessingParameterRasterDestination('StreamRaster', 'Stream raster', optional=True)
         )
     
     def processAlgorithm(self, parameters, context, feedback):
@@ -176,6 +175,12 @@ class tc(QgsProcessingAlgorithm):
             # Copio il file temporaneo nella destinazione finale
             shutil.copy2(watershed_result['drainage'], fdir_output)
             results['Fdir'] = fdir_output
+        
+        #gestisco l'output del raster stream se richiesto
+        if parameters['StreamRaster']:
+            stream_output = self.parameterAsOutputLayer(parameters, 'StreamRaster', context)
+            shutil.copy2(watershed_result['stream'], stream_output)
+            results['StreamRaster'] = stream_output
         
         #gestisco il calcolo del bacino idrografico se richiesto
         if parameters['Catch']:
@@ -287,71 +292,6 @@ class tc(QgsProcessingAlgorithm):
                 }, context=context, feedback=feedback)
                 
                 results['CatchVector'] = vector_output
-        
-        # Estrazione rete idrografica se richiesta
-        if parameters['StreamNetwork']:
-            feedback.pushInfo('Converting stream raster from r.watershed to vector...')
-            
-            stream_output = self.parameterAsOutputLayer(parameters, 'StreamNetwork', context)
-            
-            # Converto direttamente il raster streams in vettoriale
-            temp_vector = processing.run("gdal:polygonize", {
-                'INPUT': watershed_result['stream'],
-                'BAND': 1,
-                'FIELD': 'DN',
-                'EIGHT_CONNECTEDNESS': True,
-                'EXTRA': '',
-                'OUTPUT': 'TEMPORARY_OUTPUT'
-            }, context=context, feedback=feedback)
-            
-            # Filtro solo i poligoni dei corsi d'acqua (DN > 0)
-            stream_polygons = processing.run("native:extractbyexpression", {
-                'INPUT': temp_vector['OUTPUT'],
-                'EXPRESSION': '"DN" > 0',
-                'OUTPUT': 'TEMPORARY_OUTPUT'
-            }, context=context, feedback=feedback)
-            
-            # Converto i poligoni in linee
-            stream_lines = processing.run("native:polygonstolines", {
-                'INPUT': stream_polygons['OUTPUT'],
-                'OUTPUT': 'TEMPORARY_OUTPUT'
-            }, context=context, feedback=feedback)
-            
-            # Se c'è il bacino vettoriale, interseco la rete con il bacino
-            if parameters['CatchVector']:
-                feedback.pushInfo('Clipping streams to catchment...')
-                clipped_streams = processing.run("native:intersection", {
-                    'INPUT': stream_lines['OUTPUT'],
-                    'OVERLAY': results['CatchVector'],
-                    'OUTPUT': 'TEMPORARY_OUTPUT'
-                }, context=context, feedback=feedback)
-                final_streams = clipped_streams['OUTPUT']
-            else:
-                final_streams = stream_lines['OUTPUT']
-            
-            # Aggiungo lunghezza
-            stream_with_length = processing.run("native:fieldcalculator", {
-                'INPUT': final_streams,
-                'FIELD_NAME': 'Length_m',
-                'FIELD_TYPE': 0,
-                'FIELD_LENGTH': 15,
-                'FIELD_PRECISION': 2,
-                'FORMULA': '$length',
-                'OUTPUT': 'TEMPORARY_OUTPUT'
-            }, context=context, feedback=feedback)
-            
-            # Aggiungo statistiche di flow accumulation
-            processing.run("native:zonalstatisticsfb", {
-                'INPUT': stream_with_length['OUTPUT'],
-                'INPUT_RASTER': watershed_result['accumulation'],
-                'RASTER_BAND': 1,
-                'COLUMN_PREFIX': 'facc_',
-                'STATISTICS': [2],  # media
-                'OUTPUT': stream_output
-            }, context=context, feedback=feedback)
-            
-            results['StreamNetwork'] = stream_output
-            feedback.pushInfo('Stream network created from r.watershed streams!')
         
         # Qui restituisco tutti i risultati calcolati
         return results
