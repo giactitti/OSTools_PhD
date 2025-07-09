@@ -74,6 +74,12 @@ class tc(QgsProcessingAlgorithm):
         self.addParameter(
             QgsProcessingParameterRasterDestination('StreamRaster', 'Stream raster', optional=True)
         )
+        
+        # Parametro di output per la rete idrografica (poligoni)
+        self.addParameter(
+            QgsProcessingParameterVectorDestination('StreamPolygons', 'Stream polygons', 
+                type=QgsProcessing.TypeVectorPolygon, optional=True)
+        )
     
     def processAlgorithm(self, parameters, context, feedback):
         
@@ -147,7 +153,6 @@ class tc(QgsProcessingAlgorithm):
             'stream': 'TEMPORARY_OUTPUT'         # Output temporaneo per streams
         }, context=context, feedback=feedback)
         
-        # inizializzo il dizionario dei risultati
         results = {}
         
         # Gestisco l'output della pendenza se richiesto
@@ -177,10 +182,48 @@ class tc(QgsProcessingAlgorithm):
             results['Fdir'] = fdir_output
         
         #gestisco l'output del raster stream se richiesto
+        stream_raster_path = None
         if parameters['StreamRaster']:
             stream_output = self.parameterAsOutputLayer(parameters, 'StreamRaster', context)
             shutil.copy2(watershed_result['stream'], stream_output)
             results['StreamRaster'] = stream_output
+            stream_raster_path = stream_output
+        
+        #gestisco l'output dei poligoni stream se richiesto
+        if parameters['StreamPolygons']:
+            feedback.pushInfo('Converting stream raster to polygons...')
+            
+            stream_polygons_output = self.parameterAsOutputLayer(parameters, 'StreamPolygons', context)
+            
+            # Se ho salvato il raster, uso quello, altrimenti uso il temporaneo
+            input_raster = stream_raster_path if stream_raster_path else watershed_result['stream']
+            
+            # Prima converto in poligoni
+            temp_polygons = processing.run("gdal:polygonize", {
+                'INPUT': input_raster,
+                'BAND': 1,
+                'FIELD': 'DN',
+                'EIGHT_CONNECTEDNESS': False,
+                'EXTRA': '',
+                'OUTPUT': 'TEMPORARY_OUTPUT'
+            }, context=context, feedback=feedback)
+            
+            # Filtro solo i poligoni dei corsi d'acqua (DN > 0)
+            stream_only = processing.run("native:extractbyexpression", {
+                'INPUT': temp_polygons['OUTPUT'],
+                'EXPRESSION': '"DN" > 0',
+                'OUTPUT': 'TEMPORARY_OUTPUT'
+            }, context=context, feedback=feedback)
+            
+            # Dissolvo tutto in un'unica geometria
+            processing.run("native:dissolve", {
+                'INPUT': stream_only['OUTPUT'],
+                'FIELD': [],  # Nessun campo = dissolve tutto insieme
+                'OUTPUT': stream_polygons_output
+            }, context=context, feedback=feedback)
+            
+            results['StreamPolygons'] = stream_polygons_output
+            feedback.pushInfo('Stream polygons dissolved into single geometry!')
         
         #gestisco il calcolo del bacino idrografico se richiesto
         if parameters['Catch']:
@@ -293,5 +336,4 @@ class tc(QgsProcessingAlgorithm):
                 
                 results['CatchVector'] = vector_output
         
-        # Qui restituisco tutti i risultati calcolati
         return results
