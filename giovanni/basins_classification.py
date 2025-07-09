@@ -1,6 +1,6 @@
 """
 Model exported as python.
-Name : basins_classification_with_categorical_shape_a2
+Name : basins_classification_with_categorical_shape
 Group : 
 With QGIS : 34008
 """
@@ -116,10 +116,10 @@ class Basins_classification_with_categorical_shape(QgsProcessingAlgorithm):
         return results
 
     def name(self):
-        return 'basins_classification_with_categorical_shape_a2'
+        return 'basins_classification_with_categorical_shape'
 
     def displayName(self):
-        return 'Basins Classification a.2'
+        return 'Basins classification (with categorical shape)'
 
     def group(self):
         return ''
