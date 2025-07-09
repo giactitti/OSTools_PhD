@@ -1,8 +1,10 @@
 from qgis.core import QgsProcessing
+from qgis.core import QgsVectorLayer
 from qgis.core import QgsProcessingAlgorithm
 from qgis.core import QgsProcessingMultiStepFeedback
 from qgis.core import QgsProcessingParameterVectorLayer
 from qgis.core import QgsProcessingParameterMultipleLayers
+from qgis.core import QgsProcessingParameterField
 from qgis.core import QgsProcessingParameterVectorDestination
 from qgis.core import QgsProcessingParameterFeatureSink
 import processing
@@ -10,12 +12,12 @@ import processing
 class TestComposito(QgsProcessingAlgorithm):
 
     def initAlgorithm(self, config=None):
-        self.addParameter(QgsProcessingParameterMultipleLayers('mappe', 'Mappe', layerType=QgsProcessing.TypeVector, defaultValue=None))
-        self.addParameter(QgsProcessingParameterVectorLayer('mask', 'Mask', types=[QgsProcessing.TypeVectorAnyGeometry], defaultValue=None))
-        self.addParameter(QgsProcessingParameterVectorLayer('unit_funzionale', 'Unità funzionale', types=[QgsProcessing.TypeVectorAnyGeometry], defaultValue=None))
-        self.addParameter(QgsProcessingParameterField('ISTAT', 'ISTAT', type=QgsProcessingParameterField.Any, parentLayerParameterName='unit_funzionale', allowMultiple=False, defaultValue=None))
-        self.addParameter(QgsProcessingParameterField('COMUNE', 'COMUNE', type=QgsProcessingParameterField.Any, parentLayerParameterName='unit_funzionale', allowMultiple=False, defaultValue=None))
-        self.addParameter(QgsProcessingParameterField('PROVINCIA', 'PROVINCIA', type=QgsProcessingParameterField.Any, parentLayerParameterName='unit_funzionale', allowMultiple=False, defaultValue=None))
+        self.addParameter(QgsProcessingParameterMultipleLayers('mappe', 'Mappe', layerType=QgsProcessing.TypeVector, defaultValue='LHP'))
+        self.addParameter(QgsProcessingParameterVectorLayer('mask', 'Mask', types=[QgsProcessing.TypeVectorAnyGeometry], defaultValue='REG'))
+        self.addParameter(QgsProcessingParameterVectorLayer('unit_funzionale', 'Unità funzionale', types=[QgsProcessing.TypeVectorAnyGeometry], defaultValue='COM'))
+        self.addParameter(QgsProcessingParameterField('ISTAT', 'ISTAT', type=QgsProcessingParameterField.Any, parentLayerParameterName='unit_funzionale', allowMultiple=False, defaultValue='ISTAT'))
+        self.addParameter(QgsProcessingParameterField('COMUNE', 'COMUNE', type=QgsProcessingParameterField.Any, parentLayerParameterName='unit_funzionale', allowMultiple=False, defaultValue='NOME_C'))
+        self.addParameter(QgsProcessingParameterField('PROVINCIA', 'PROVINCIA', type=QgsProcessingParameterField.Any, parentLayerParameterName='unit_funzionale', allowMultiple=False, defaultValue='SG_PRV'))
         self.addParameter(QgsProcessingParameterFeatureSink('mappa_join', 'Result', type=QgsProcessing.TypeVectorAnyGeometry, createByDefault=True, defaultValue=None))
 
     def processAlgorithm(self, parameters, context, model_feedback):
@@ -27,23 +29,30 @@ class TestComposito(QgsProcessingAlgorithm):
         print(parameters)
 
         # Ciclo for
-        for mappe in parameters['mappe']:
+        
+        for count,mappe in enumerate(parameters['mappe']):
 
+            vector=QgsVectorLayer(mappe,'','ogr')
+
+            print(1)
             # Estrai "alta", "media" o "bassa" dal campo scenario
             scenario_value = ''
-            for feat in mappe.getFeatures():
+            for feat in vector.getFeatures():
+                print(2)
+
                 scenario_value = feat['scenario']
                 break  # solo il primo valore
 
             # Clip vector by mask layer
             clip_params = {
-                'INPUT': parameters['mappe'],
+                'INPUT': mappe,
                 'MASK': parameters['mask'],
                 'OPTIONS': '',
                 'OUTPUT': 'TEMPORARY_OUTPUT'
             }
             outputs['ClipVectorByMaskLayer'] = processing.run('gdal:clipvectorbypolygon', clip_params, context=context, feedback=feedback, is_child_algorithm=True)
             clipped_layer = outputs['ClipVectorByMaskLayer']['OUTPUT']
+            print(3)
 
             # Intersection
             inter_params = {
@@ -74,29 +83,45 @@ class TestComposito(QgsProcessingAlgorithm):
             # Agregate
             aggr_params = {
                 'AGGREGATES': [{'aggregate': 'count','delimiter': ',','input': '"Area_Km2"','length': 20,'name': 'count','precision': 0,'sub_type': 0,'type': 6,'type_name': 'double precision'},
-                {'aggregate': 'first_value','delimiter': ',','input': parameters['ISTAT'],'length': 254,'name': 'ISTAT','precision': 0,'sub_type': 0,'type': 10,'type_name': 'text'},
-                {'aggregate': 'first_value','delimiter': ',','input': '','length': 50,'name': parameters['COMUNE'],'precision': 0,'sub_type': 0,'type': 10,'type_name': 'text'},
-                {'aggregate': 'first_value','delimiter': ',','input': parameters['PROVINCIA'],'length': 254,'name': 'SG_PRV','precision': 0,'sub_type': 0,'type': 10,'type_name': 'text'},
-                {'aggregate': 'sum','delimiter': ',','input': '"Area_Km2"','length': 20,'name': scenario_value,'precision': 3,'sub_type': 0,'type': 6,'type_name': 'double precision'}],
+                #{'aggregate': 'first_value','delimiter': ',','input': parameters['ISTAT'],'length': 254,'name': 'ISTAT','precision': 0,'sub_type': 0,'type': 10,'type_name': 'text'},
+                #{'aggregate': 'first_value','delimiter': ',','input': parameters['COMUNE'],'length': 50,'name': 'Comune','precision': 0,'sub_type': 0,'type': 10,'type_name': 'text'},
+                #{'aggregate': 'first_value','delimiter': ',','input': parameters['PROVINCIA'],'length': 254,'name': 'Provincia','precision': 0,'sub_type': 0,'type': 10,'type_name': 'text'},
+                {'aggregate': 'sum','delimiter': ',','input': '"Area_Km2"','length': 20,'name': 'scenario','precision': 3,'sub_type': 0,'type': 6,'type_name': 'double precision'}],
                 'GROUP_BY': parameters['ISTAT'],
                 'INPUT': area_layer,
-                'OUTPUT': TEMPORARY_OUTPUT
+                'OUTPUT': 'TEMPORARY_OUTPUT'
             }
             outputs['Aggregate'] = processing.run('native:aggregate', aggr_params, context=context, feedback=feedback, is_child_algorithm=True)
-            aggr_layer = outputs['Aggregate']['OUTPUT']
-
-          # Join colonna col_name su NOME_C
-        # joined_params = {
-        #     'INPUT': parameters['unit_funzionale'],
-        #     'FIELD': 'NOME_C',
-        #     'INPUT_2': aggr_layer,
-        #     'FIELD_2': 'NOME_C',
-        #     'FIELDS_TO_COPY': [col_name],
-        #     'METHOD': 1,
-        #     'DISCARD_NONMATCHING': False,
-        #     'OUTPUT': parameters ['mappa_join']
-        # outputs['JoinAttributes'] = processing.run('native:joinattributesbylocation', join_params, context=context, feedback=feedback, is_child_algorithm=True)
-        # joined_layer = outputs['JoinAttributes']['OUTPUT']
+            if count==0:
+                # Join colonna Area su ISTAT
+                joined_params = {
+                     'INPUT': parameters['unit_funzionale'],
+                     'FIELD': 'ISTAT',
+                     'INPUT_2': outputs['Aggregate']['OUTPUT'],
+                     'FIELD_2': 'ISTAT',
+                     'FIELDS_TO_COPY': scenario_value,
+                     'METHOD': 1,
+                     'DISCARD_NONMATCHING': False,
+                     'OUTPUT': 'TEMPORARY_OUTPUT'
+                }
+                outputs['JoinAttributes'] = processing.run('native:joinattributestable', joined_params, context=context, feedback=feedback, is_child_algorithm=True)
+                joined_layer = outputs['JoinAttributes']['OUTPUT']
+            else:
+                joined_params = {
+                     'INPUT': joined_layer,
+                     'FIELD': 'ISTAT',
+                     'INPUT_2': outputs['Aggregate']['OUTPUT'],
+                     'FIELD_2': 'ISTAT',
+                     'FIELDS_TO_COPY': [scenario_value],
+                     'METHOD': 1,
+                     'DISCARD_NONMATCHING': False,
+                     'OUTPUT': 'TEMPORARY_OUTPUT'
+                }
+                if count==len(parameters['mappe'])-1:
+                    joined_params['OUTPUT']=parameters['mappa_join']
+                outputs['JoinAttributes'] = processing.run('native:joinattributestable', joined_params, context=context, feedback=feedback, is_child_algorithm=True)
+                joined_layer = outputs['JoinAttributes']['OUTPUT']
+        results['mappa_join'] = joined_layer
         return results
 
     def name(self):
