@@ -9,7 +9,7 @@ from qgis.core import QgsProcessingParameterVectorDestination
 from qgis.core import QgsProcessingParameterFeatureSink
 import processing
 
-class TestComposito(QgsProcessingAlgorithm):
+class Comp_RER(QgsProcessingAlgorithm):
 
     def shortHelpString(self):
         return self.HelpString()
@@ -131,10 +131,10 @@ class TestComposito(QgsProcessingAlgorithm):
         return results
 
     def name(self):
-        return 'Test Composito'
+        return 'Comp_RER'
 
     def displayName(self):
-        return 'Test Composito (Clip+Inter+Area+Aggr)'
+        return 'Comp_RER (Clip+Inter+Area+Aggr+Join)'
 
     def group(self):
         return 'Custom Script'
@@ -143,4 +143,4 @@ class TestComposito(QgsProcessingAlgorithm):
         return 'CustomScript'
 
     def createInstance(self):
-        return TestComposito()
+        return Comp_RER()
