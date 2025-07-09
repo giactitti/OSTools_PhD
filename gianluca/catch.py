@@ -26,6 +26,21 @@ class tc(QgsProcessingAlgorithm):
         # Qui creo una nuova istanza della classe per QGIS
         return tc()  
     
+
+
+    def shortHelpString(self):
+
+        return """
+        <h3>Analisi del Catchment</h3>
+        
+        <p>Calcola il bacino idrografico da un punto di chiusura.</p>
+        
+        <p><b>Input:</b> DEM + coordinate punto</p>
+        <p><b>Output:</b> Bacino, flow accumulation, direzioni di drenaggio, slope, river network</p>
+        
+        <p>Usa algoritmi GRASS GIS.</p>
+        """
+    
     def initAlgorithm(self, config=None):
         
         
@@ -83,6 +98,11 @@ class tc(QgsProcessingAlgorithm):
     
     def processAlgorithm(self, parameters, context, feedback):
         
+        # Test per verificare che le funzioni di help funzionino
+        feedback.pushInfo("=== TEST FUNZIONI HELP ===")
+        feedback.pushInfo("helpString() chiamata: " + str(self.helpString() is not None))
+        feedback.pushInfo("shortHelpString() chiamata: " + str(self.shortHelpString() is not None))
+        feedback.pushInfo("=========================")
         
         # Qui prendo il DEM dai parametri di input
         dem = self.parameterAsRasterLayer(parameters, 'dem', context)
