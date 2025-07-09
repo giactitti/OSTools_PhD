@@ -79,7 +79,7 @@ class Basins_classification_with_categorical_shape(QgsProcessingAlgorithm):
         for filename in os.listdir(output_folder):
             file_path = os.path.join(output_folder, filename)
             if os.path.isfile(file_path):
-                os.remove(file_path)
+                raise ValueError('there are files in the output folder, please remove them or create a new folder')
         
         for i, layer in enumerate(layers):
             
@@ -111,7 +111,7 @@ class Basins_classification_with_categorical_shape(QgsProcessingAlgorithm):
             outputs['ZonalStatistics'] = processing.run('native:zonalstatisticsfb', alg_params, context=context, feedback=feedback, is_child_algorithm=True)
             print('zonal statistics done')
             
-            if i == len(layers)-1:
+            if i == len(layers)-1: # last layer
                 # Zonal histogram
                 alg_params = {
                     'COLUMN_PREFIX': 'HISTO_',
@@ -157,9 +157,13 @@ class Basins_classification_with_categorical_shape(QgsProcessingAlgorithm):
         return Basins_classification_with_categorical_shape()
     
     def shortHelpString(self):
+        return self.HelpString()
+        
+    def HelpString(self):
+        return (
         """
         Returs zonal histogram and zonal statistics for selected polygon vector layers, based on categorical surfaces
         Input required are a vector or raster which defines the categories of surface
         """
-        return self.tr("Basins classification (with categorical shape) - short description")
+        )
  
