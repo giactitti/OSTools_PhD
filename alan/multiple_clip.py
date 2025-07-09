@@ -17,9 +17,9 @@ from qgis.core import QgsProcessingParameterFeatureSink
 import processing
 
 
-
-    def initAlgorithm(self, config=None):class Multiple_clip(QgsProcessingAlgorithm):
-
+class Multiple_clip(QgsProcessingAlgorithm):
+    
+    def initAlgorithm(self, config=None):
         self.addParameter(QgsProcessingParameterMultipleLayers('raster1', 'raster1', layerType=QgsProcessing.TypeRaster, defaultValue=None))
         self.addParameter(QgsProcessingParameterVectorLayer('homo_region', 'homo_region', defaultValue=None))
         self.addParameter(QgsProcessingParameterRasterDestination('Output', 'output', createByDefault=True, defaultValue=None))
@@ -31,7 +31,7 @@ import processing
         results = {}
         outputs = {}
 
-        my_list = []
+        raster_list = []
         rasters = parameters['raster1'] 
         
         for r in rasters:
@@ -58,11 +58,27 @@ import processing
             }
           outputs['RitagliaRasterConMaschera'] = processing.run('gdal:cliprasterbymasklayer', alg_params, context=context, feedback=feedback, is_child_algorithm=True)
           results['Output'] = outputs['RitagliaRasterConMaschera']['OUTPUT']
+          raster_list.append(results['Output'])
+        return raster_list
         
-        my_list.append(results['Output'])
         
-        return my_list
-
+        point_list = []
+        
+        for i in len(raster_list):
+        
+         # Da pixel raster a punti
+            alg_params = {
+                'FIELD_NAME': 'VALUE',
+                'INPUT_RASTER': raster_list[i],
+                'RASTER_BAND': 1,
+                'OUTPUT': parameters['Output']
+            }
+            outputs['DaPixelRasterAPunti'] = processing.run('native:pixelstopoints', alg_params, context=context, feedback=feedback, is_child_algorithm=True)
+            results['Output'] = outputs['DaPixelRasterAPunti']['OUTPUT']
+            point_list.append(results['Ouput'])
+        return point_list
+        
+        
     def name(self):
         return 'multiple_clip'
 
